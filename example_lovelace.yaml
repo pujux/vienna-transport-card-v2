@@ -41,6 +41,9 @@ type: custom:vienna-transport-card
 max_departures: 2
 compact_mode: true
 group_by_station: true
+line_colors:
+  - U6: "#a4642c"
+  - 64A: "#1c60a7"
 entities:
   - entity: sensor.wl_monitor_4632
     type: subway

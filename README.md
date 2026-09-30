@@ -51,6 +51,8 @@ Cards oder Sections können nun mit custom yaml aus [example_lovelace.yaml](http
   - Default: `true`
 - `group_by_station` (Boolean): Fasst alle Entities mit demselben Stationsnamen (z.B. beide Richtungen einer U-Bahn-Station) in einer Karte zusammen. Abfahrten werden nach Countdown sortiert, `max_departures` gilt weiterhin pro Entity.
   - Default: `false`
+- `line_colors` (Array oder Objekt, optional): Hintergrundfarbe pro Linie, z.B. `- U6: "#a4642c"`.
+  - Default: Theme-Akzentfarbe
 - `entities` (Array): Liste der zu überwachenden Stationen.
 
 #### Entity-Objekt

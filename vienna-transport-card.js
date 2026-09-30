@@ -23,6 +23,9 @@ class ViennaTransportCard extends HTMLElement {
       compact_mode: config.compact_mode || false,
       show_direction: config.show_direction !== false,
       group_by_station: config.group_by_station || false,
+      line_colors: Array.isArray(config.line_colors)
+        ? Object.assign({}, ...config.line_colors)
+        : config.line_colors || {},
       entities: config.entities.map(entity => 
         typeof entity === 'string' 
           ? { entity, type: 'bim' }
@@ -289,7 +292,7 @@ class ViennaTransportCard extends HTMLElement {
 
     return `
       <div class="departure-item">
-        <div class="line-number">${dep.line}</div>
+        <div class="line-number" data-line="${dep.line}">${dep.line}</div>
         <div class="departure-details">
           ${directionHtml}
         </div>
@@ -430,6 +433,10 @@ class ViennaTransportCard extends HTMLElement {
         min-width: 30px;
         text-align: center;
       }
+
+      ${Object.entries(this._config.line_colors)
+        .map(([line, color]) => `.line-number[data-line="${CSS.escape(String(line))}"] { background: ${color}; }`)
+        .join('\n      ')}
 
       .departure-item {
         display: grid;
