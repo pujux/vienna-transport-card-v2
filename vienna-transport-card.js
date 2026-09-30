@@ -150,7 +150,6 @@ class ViennaTransportCard extends HTMLElement {
       }
 
       const stop_name = firstEntity.attributes.stop_name || 'Unknown Stop';
-      const types = [...new Set(station.entries.map(e => e.entityConfig.type || 'bus'))];
       const departures = [];
       const stationDisturbances = [];
       const seenDisturbances = new Set();
@@ -166,7 +165,8 @@ class ViennaTransportCard extends HTMLElement {
         if (entityConfig.lines?.length) {
           filtered = filtered.filter(dep => entityConfig.lines.includes(dep.line));
         }
-        departures.push(...filtered.slice(0, this._config.max_departures));
+        const type = entityConfig.type || 'bus';
+        departures.push(...filtered.slice(0, this._config.max_departures).map(dep => ({ ...dep, _type: type })));
 
         for (const info of traffic_info) {
           const key = info.id || info.title;
@@ -183,6 +183,12 @@ class ViennaTransportCard extends HTMLElement {
       if (station.entries.length > 1) {
         departures.sort((a, b) => (Number(a.countdown) || 0) - (Number(b.countdown) || 0));
       }
+
+      // Header icons follow the row order; types without departures go last
+      const types = [...new Set([
+        ...[...departures].sort(ViennaTransportCard._compareByLine).map(dep => dep._type),
+        ...station.entries.map(e => e.entityConfig.type || 'bus'),
+      ])];
 
       const stationExpanded = !!this._expanded.station[station.key];
 
@@ -244,10 +250,7 @@ class ViennaTransportCard extends HTMLElement {
                   }
                 }
                 // Fixed row order by line, then direction, so rows don't jump around as countdowns change
-                groups.sort((a, b) =>
-                  String(a.line).localeCompare(String(b.line), undefined, { numeric: true }) ||
-                  String(a.direction).localeCompare(String(b.direction))
-                );
+                groups.sort(ViennaTransportCard._compareByLine);
                 return groups.map((dep, index) => 
                   this._generateDepartureItem(dep, index, station.key, dep.countdowns)
                 ).join('');
@@ -260,6 +263,11 @@ class ViennaTransportCard extends HTMLElement {
         </div>
       `;
     }).join('');
+  }
+
+  static _compareByLine(a, b) {
+    return String(a.line).localeCompare(String(b.line), undefined, { numeric: true }) ||
+      String(a.direction).localeCompare(String(b.direction));
   }
 
   _generateDepartureItem(dep, index, entityId, countdowns) {
