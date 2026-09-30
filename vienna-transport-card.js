@@ -22,6 +22,7 @@ class ViennaTransportCard extends HTMLElement {
       max_departures: config.max_departures || 3,
       compact_mode: config.compact_mode || false,
       show_direction: config.show_direction !== false,
+      group_by_station: config.group_by_station || false,
       entities: config.entities.map(entity => 
         typeof entity === 'string' 
           ? { entity, type: 'bim' }
@@ -93,7 +94,7 @@ class ViennaTransportCard extends HTMLElement {
       indicator.addEventListener('click', (e) => {
         e.stopPropagation();
         const key = `${indicator.dataset.entity}-${indicator.dataset.index}`;
-        const details = this.shadowRoot.querySelector(`[data-disturbance="${key}"]`);
+        const details = this.shadowRoot.querySelector(`[data-disturbance="${CSS.escape(key)}"]`);
         
         if (details) {
           const nowShown = details.style.display === 'block';
@@ -104,51 +105,95 @@ class ViennaTransportCard extends HTMLElement {
     });
   }
 
+  _buildStations() {
+    const stations = [];
+    const byName = new Map();
+
+    for (const entityConfig of this._config.entities) {
+      const entity = this._hass.states[entityConfig.entity];
+      const entry = { entityConfig, entity };
+      const stopName = entity?.attributes?.stop_name;
+
+      if (!entity || !this._config.group_by_station || !stopName) {
+        stations.push({ key: entityConfig.entity, entries: [entry] });
+        continue;
+      }
+
+      if (!byName.has(stopName)) {
+        const station = { key: stopName, entries: [] };
+        byName.set(stopName, station);
+        stations.push(station);
+      }
+      byName.get(stopName).entries.push(entry);
+    }
+
+    return stations;
+  }
+
   _generateStopCards() {
     if (!this._config.entities?.length) return '<div class="error">No entities configured</div>';
 
-    return this._config.entities.map(entityConfig => {
-      const entity = this._hass.states[entityConfig.entity];
-      if (!entity) {
+    return this._buildStations().map(station => {
+      const [{ entityConfig: firstConfig, entity: firstEntity }] = station.entries;
+      if (!firstEntity) {
         return `
           <div class="line-card error">
             <div class="error-message">
               <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-              <span>Entity ${entityConfig.entity} not found</span>
+              <span>Entity ${firstConfig.entity} not found</span>
             </div>
           </div>
         `;
       }
 
-      const { stop_name = 'Unknown Stop', departures = [], traffic_info = [], stop_id } = entity.attributes;
-      
-      let filteredDepartures = departures;
-      if (entityConfig.direction) {
-        filteredDepartures = filteredDepartures.filter(dep => dep.direction === entityConfig.direction);
-      }
-      if (entityConfig.lines?.length) {
-        filteredDepartures = filteredDepartures.filter(dep => entityConfig.lines.includes(dep.line));
+      const stop_name = firstEntity.attributes.stop_name || 'Unknown Stop';
+      const types = [...new Set(station.entries.map(e => e.entityConfig.type || 'bus'))];
+      const departures = [];
+      const stationDisturbances = [];
+      const seenDisturbances = new Set();
+      const filterBadges = new Set();
+
+      for (const { entityConfig, entity } of station.entries) {
+        const { departures: entityDepartures = [], traffic_info = [], stop_id } = entity.attributes;
+
+        let filtered = entityDepartures;
+        if (entityConfig.direction) {
+          filtered = filtered.filter(dep => dep.direction === entityConfig.direction);
+        }
+        if (entityConfig.lines?.length) {
+          filtered = filtered.filter(dep => entityConfig.lines.includes(dep.line));
+        }
+        departures.push(...filtered.slice(0, this._config.max_departures));
+
+        for (const info of traffic_info) {
+          const key = info.id || info.title;
+          if (!info.related_stops?.includes(stop_id) || seenDisturbances.has(key)) continue;
+          seenDisturbances.add(key);
+          stationDisturbances.push(info);
+        }
+
+        if (entityConfig.direction) filterBadges.add(`<span class="filter-badge direction-filter" title="Direction filter active">→ ${entityConfig.direction}</span>`);
+        if (entityConfig.lines?.length) filterBadges.add(`<span class="filter-badge lines-filter" title="Lines filter active">Lines: ${entityConfig.lines.join(', ')}</span>`);
       }
 
-      const stationDisturbances = traffic_info.filter(info => info.related_stops?.includes(stop_id));
-      const stationExpanded = !!this._expanded.station[entityConfig.entity];
-      
-      const filterBadges = [
-        entityConfig.direction && `<span class="filter-badge direction-filter" title="Direction filter active">→ ${entityConfig.direction}</span>`,
-        entityConfig.lines?.length && `<span class="filter-badge lines-filter" title="Lines filter active">Lines: ${entityConfig.lines.join(', ')}</span>`
-      ].filter(Boolean).join('');
+      // Departures from several stops are interleaved in time
+      if (station.entries.length > 1) {
+        departures.sort((a, b) => (Number(a.countdown) || 0) - (Number(b.countdown) || 0));
+      }
+
+      const stationExpanded = !!this._expanded.station[station.key];
 
       return `
         <div class="line-card">
           <div class="line-header">
             <div class="line-title">
-              <div class="line-icon ${entityConfig.type || 'bus'}"></div>
+              ${types.map(type => `<div class="line-icon ${type}"></div>`).join('')}
               <span class="line-name">${stop_name}</span>
-              ${filterBadges}
+              ${[...filterBadges].join('')}
             </div>
           </div>
           ${stationDisturbances.length ? `
-            <div class="station-disturbances" data-entity="${entityConfig.entity}">
+            <div class="station-disturbances" data-entity="${station.key}">
               <div class="station-disturbances-header">
                 <ha-icon icon="mdi:alert-circle"></ha-icon>
                 <span>${stationDisturbances.length} station disturbance(s)</span>
@@ -166,22 +211,23 @@ class ViennaTransportCard extends HTMLElement {
           ` : ''}
           <div class="departures">
             ${(() => {
-              const filtered = filteredDepartures.slice(0, this._config.max_departures);
-              if (!filtered.length) {
+              if (!departures.length) {
                 return '<div class="no-departures">No departures matching the filter criteria</div>';
               }
               if (this._config.compact_mode) {
                 const groups = [];
-                for (const dep of filtered) {
-                  const last = groups[groups.length - 1];
-                  if (last && last.line === dep.line && last.direction === dep.direction) {
-                    last.countdowns.push(dep.countdown);
-                    last.times.push({ time_real: dep.time_real, time_planned: dep.time_planned });
-                    if (dep.disturbances?.length) last.disturbances.push(...dep.disturbances);
-                    if (dep.barrier_free) last.barrier_free = true;
-                    if (dep.folding_ramp || dep.foldingRamp) last.folding_ramp = true;
+                const groupsByKey = new Map();
+                for (const dep of departures) {
+                  const key = `${dep.line}||${dep.direction}`;
+                  const group = groupsByKey.get(key);
+                  if (group) {
+                    group.countdowns.push(dep.countdown);
+                    group.times.push({ time_real: dep.time_real, time_planned: dep.time_planned });
+                    if (dep.disturbances?.length) group.disturbances.push(...dep.disturbances);
+                    if (dep.barrier_free) group.barrier_free = true;
+                    if (dep.folding_ramp || dep.foldingRamp) group.folding_ramp = true;
                   } else {
-                    groups.push({
+                    const newGroup = {
                       line: dep.line,
                       direction: dep.direction,
                       countdowns: [dep.countdown],
@@ -189,15 +235,17 @@ class ViennaTransportCard extends HTMLElement {
                       barrier_free: dep.barrier_free || false,
                       folding_ramp: dep.folding_ramp || dep.foldingRamp || false,
                       disturbances: dep.disturbances ? [...dep.disturbances] : [],
-                    });
+                    };
+                    groupsByKey.set(key, newGroup);
+                    groups.push(newGroup);
                   }
                 }
                 return groups.map((dep, index) => 
-                  this._generateDepartureItem(dep, index, entityConfig.entity, dep.countdowns)
+                  this._generateDepartureItem(dep, index, station.key, dep.countdowns)
                 ).join('');
               }
-              return filtered.map((dep, index) => 
-                this._generateDepartureItem(dep, index, entityConfig.entity)
+              return departures.map((dep, index) => 
+                this._generateDepartureItem(dep, index, station.key)
               ).join('');
             })()}
           </div>

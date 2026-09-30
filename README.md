@@ -49,6 +49,8 @@ Cards oder Sections können nun mit custom yaml aus [example_lovelace.yaml](http
   - Default: `false`
 - `show_direction` (Boolean): Zeigt den Richtungstext in jeder Abfahrtszeile an. Auf false setzen für eine schmalere Karte.
   - Default: `true`
+- `group_by_station` (Boolean): Fasst alle Entities mit demselben Stationsnamen (z.B. beide Richtungen einer U-Bahn-Station) in einer Karte zusammen. Abfahrten werden nach Countdown sortiert, `max_departures` gilt weiterhin pro Entity.
+  - Default: `false`
 - `entities` (Array): Liste der zu überwachenden Stationen.
 
 #### Entity-Objekt
