@@ -1,4 +1,4 @@
-class ViennaTransportCard extends HTMLElement {
+class ViennaTransportCardV2 extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -186,7 +186,7 @@ class ViennaTransportCard extends HTMLElement {
 
       // Header icons follow the row order; types without departures go last
       const types = [...new Set([
-        ...[...departures].sort(ViennaTransportCard._compareByLine).map(dep => dep._type),
+        ...[...departures].sort(ViennaTransportCardV2._compareByLine).map(dep => dep._type),
         ...station.entries.map(e => e.entityConfig.type || 'bus'),
       ])];
 
@@ -250,7 +250,7 @@ class ViennaTransportCard extends HTMLElement {
                   }
                 }
                 // Fixed row order by line, then direction, so rows don't jump around as countdowns change
-                groups.sort(ViennaTransportCard._compareByLine);
+                groups.sort(ViennaTransportCardV2._compareByLine);
                 return groups.map((dep, index) => 
                   this._generateDepartureItem(dep, index, station.key, dep.countdowns)
                 ).join('');
@@ -597,10 +597,10 @@ class ViennaTransportCard extends HTMLElement {
   }
 }
 
-customElements.define('vienna-transport-card', ViennaTransportCard);
+customElements.define('vienna-transport-card-v2', ViennaTransportCardV2);
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: 'vienna-transport-card',
-  name: 'Vienna Transport Card',
+  type: 'vienna-transport-card-v2',
+  name: 'Vienna Transport Card v2',
   description: 'Display real-time Vienna public transport departures from WL Monitor sensors'
 });
