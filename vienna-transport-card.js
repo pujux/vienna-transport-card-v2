@@ -243,6 +243,11 @@ class ViennaTransportCard extends HTMLElement {
                     groups.push(newGroup);
                   }
                 }
+                // Fixed row order by line, then direction, so rows don't jump around as countdowns change
+                groups.sort((a, b) =>
+                  String(a.line).localeCompare(String(b.line), undefined, { numeric: true }) ||
+                  String(a.direction).localeCompare(String(b.direction))
+                );
                 return groups.map((dep, index) => 
                   this._generateDepartureItem(dep, index, station.key, dep.countdowns)
                 ).join('');

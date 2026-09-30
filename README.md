@@ -49,7 +49,7 @@ Cards oder Sections können nun mit custom yaml aus [example_lovelace.yaml](http
   - Default: `false`
 - `show_direction` (Boolean): Zeigt den Richtungstext in jeder Abfahrtszeile an. Auf false setzen für eine schmalere Karte.
   - Default: `true`
-- `group_by_station` (Boolean): Fasst alle Entities mit demselben Stationsnamen (z.B. beide Richtungen einer U-Bahn-Station) in einer Karte zusammen. Abfahrten werden nach Countdown sortiert, `max_departures` gilt weiterhin pro Entity.
+- `group_by_station` (Boolean): Fasst alle Entities mit demselben Stationsnamen (z.B. beide Richtungen einer U-Bahn-Station) in einer Karte zusammen. Abfahrten werden nach Countdown sortiert (mit `compact_mode` sind die Zeilen fix nach Linie und Richtung sortiert), `max_departures` gilt weiterhin pro Entity.
   - Default: `false`
 - `line_colors` (Array oder Objekt, optional): Hintergrundfarbe pro Linie, z.B. `- U6: "#a4642c"`.
   - Default: Theme-Akzentfarbe
