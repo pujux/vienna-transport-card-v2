@@ -190,7 +190,7 @@ class ViennaTransportCard extends HTMLElement {
         <div class="line-card">
           <div class="line-header">
             <div class="line-title">
-              ${types.map(type => `<div class="line-icon ${type}"></div>`).join('')}
+              <div class="line-icons">${types.map(type => `<div class="line-icon ${type}"></div>`).join('')}</div>
               <span class="line-name">${stop_name}</span>
               ${[...filterBadges].join('')}
             </div>
@@ -382,10 +382,16 @@ class ViennaTransportCard extends HTMLElement {
         background: rgba(33, 150, 243, 0.15);
       }
 
+      .line-icons {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-right: 8px;
+      }
+
       .line-icon {
         width: 24px;
         height: 24px;
-        margin-right: 8px;
         background-color: var(--vt-accent);
         -webkit-mask-size: contain;
         mask-size: contain;
